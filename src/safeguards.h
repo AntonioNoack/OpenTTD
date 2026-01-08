@@ -76,15 +76,15 @@
 #define stoimax   SAFEGUARD_DO_NOT_USE_THIS_METHOD
 #define stoumax   SAFEGUARD_DO_NOT_USE_THIS_METHOD
 
-/* Use fmt::print instead. */
-#define printf    SAFEGUARD_DO_NOT_USE_THIS_METHOD
+/* Use fmt::print instead. <- no, fuck you! */
+// #define printf    SAFEGUARD_DO_NOT_USE_THIS_METHOD
 #define fprintf   SAFEGUARD_DO_NOT_USE_THIS_METHOD
 #define puts      SAFEGUARD_DO_NOT_USE_THIS_METHOD
 #define fputs     SAFEGUARD_DO_NOT_USE_THIS_METHOD
 #define putchar   SAFEGUARD_DO_NOT_USE_THIS_METHOD
 
 /* Use fmt::format instead */
-#define to_string SAFEGUARD_DO_NOT_USE_THIS_METHOD
+// #define to_string SAFEGUARD_DO_NOT_USE_THIS_METHOD
 
 /* Use our own templated implementation instead of a macro or function with only one type. */
 #ifdef min

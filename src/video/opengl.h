@@ -107,7 +107,7 @@ public:
 	/* SpriteEncoder */
 
 	bool Is32BppSupported() override { return true; }
-	uint GetSpriteAlignment() override { return 1u << to_underlying(ZoomLevel::Max); }
+	uint GetSpriteAlignment() override { return 1u << (to_underlying(ZoomLevel::Max) / EXTRA_ZOOM_LEVELS); }
 	Sprite *Encode(SpriteType sprite_type, const SpriteLoader::SpriteCollection &sprite, SpriteAllocator &allocator) override;
 };
 

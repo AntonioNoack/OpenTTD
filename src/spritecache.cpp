@@ -206,11 +206,11 @@ SpriteID GetMaxSpriteID()
 
 static bool ResizeSpriteIn(SpriteLoader::SpriteCollection &sprite, ZoomLevel src, ZoomLevel tgt)
 {
-	uint8_t scaled_1 = AdjustByZoom(1, src - tgt);
+	uint8_t scaled_1 = AdjustByZoom(1, src - tgt); // >= 1
 	const auto &src_sprite = sprite[src];
 	auto &dest_sprite = sprite[tgt];
 
-	/* Check for possible memory overflow. */
+	// Check for possible memory overflow.
 	if (src_sprite.width * scaled_1 > UINT16_MAX || src_sprite.height * scaled_1 > UINT16_MAX) return false;
 
 	dest_sprite.width = src_sprite.width * scaled_1;
@@ -233,10 +233,12 @@ static bool ResizeSpriteIn(SpriteLoader::SpriteCollection &sprite, ZoomLevel src
 	return true;
 }
 
+#include <cstdio>
+
 static void ResizeSpriteOut(SpriteLoader::SpriteCollection &sprite, ZoomLevel zoom)
 {
 	const auto &root_sprite = sprite.Root();
-	const auto &src_sprite = sprite[zoom - 1];
+	const auto &src_sprite = sprite[std::clamp(zoom - EXTRA_ZOOM_LEVELS, ZoomLevel::Min, ZoomLevel::Max)];
 	auto &dest_sprite = sprite[zoom];
 
 	/* Algorithm based on 32bpp_Optimized::ResizeSprite() */
@@ -246,26 +248,48 @@ static void ResizeSpriteOut(SpriteLoader::SpriteCollection &sprite, ZoomLevel zo
 	dest_sprite.y_offs = UnScaleByZoom(root_sprite.y_offs, zoom);
 	dest_sprite.colours = root_sprite.colours;
 
+	if(false) printf("Resized sprite from %d x %d to %d x %d for zoom level #%d\n", 
+		src_sprite.width, src_sprite.height,
+		dest_sprite.width, dest_sprite.height, to_underlying(zoom));
+
 	dest_sprite.AllocateData(zoom, static_cast<size_t>(dest_sprite.height) * dest_sprite.width);
 
-	SpriteLoader::CommonPixel *dst = dest_sprite.data;
+	SpriteLoader::CommonPixel *dst = dest_sprite.data; // RGBA+Remap
 	const SpriteLoader::CommonPixel *src = src_sprite.data;
 	[[maybe_unused]] const SpriteLoader::CommonPixel *src_end = src + src_sprite.height * src_sprite.width;
 
+	uint fractionalStepX = src_sprite.width * 256 / dest_sprite.width - 256;
+	uint fractionalStepY = src_sprite.height * 256 / dest_sprite.height - 256;
+	// printf("Fractional steps: %d, %d\n", fractionalStepX, fractionalStepY);
+
+	uint fractionalY = 0;
 	for (uint y = 0; y < dest_sprite.height; y++) {
 		const SpriteLoader::CommonPixel *src_ln = src + src_sprite.width;
 		assert(src_ln <= src_end);
+		uint fractionalX = 0;
 		for (uint x = 0; x < dest_sprite.width; x++) {
 			assert(src < src_ln);
-			if (src + 1 != src_ln && (src + 1)->a != 0) {
+			if (src + 1 != src_ln && (src + 1)->a != 0) { // alpha channel check
 				*dst = *(src + 1);
 			} else {
 				*dst = *src;
 			}
 			dst++;
-			src += 2;
+			// use fractional increnment
+			src++;// += 2;
+			fractionalX += fractionalStepX;
+			if (fractionalX >= 256) {
+				src++;
+				fractionalX -= 256;
+			}
 		}
-		src = src_ln + src_sprite.width;
+		// use fractional increment
+		src = src_ln;// + src_sprite.width;
+		fractionalY += fractionalStepY;
+		if (fractionalY >= 256) {
+			src += src_sprite.width;
+			fractionalY -= 256;
+		}
 	}
 }
 
@@ -284,6 +308,14 @@ static bool PadSingleSprite(SpriteLoader::Sprite *sprite, ZoomLevel zoom, uint p
 	/* Copy with padding to destination. */
 	SpriteLoader::CommonPixel *src = src_data.data();
 	SpriteLoader::CommonPixel *data = sprite->data;
+
+	SpriteLoader::CommonPixel paddingColor = {};
+	paddingColor.r = 255;
+	paddingColor.b = 255;
+	for(uint i = 0; i < width * height; i++) {
+		*data = paddingColor;
+	}
+
 	for (uint y = 0; y < height; y++) {
 		if (y < pad_top || pad_bottom + y >= height) {
 			/* Top/bottom padding. */
@@ -354,6 +386,8 @@ static bool PadSprites(SpriteLoader::SpriteCollection &sprite, ZoomLevels sprite
 		int pad_bottom = std::max(0, UnScaleByZoom(max_height, zoom) - cur_sprite.height - pad_top);
 
 		if (pad_left > 0 || pad_right > 0 || pad_top > 0 || pad_bottom > 0) {
+			if (false) printf("Padding sprite by %d, %d, %d, %d for %d alignment requirement\n",
+				pad_left, pad_right, pad_top, pad_bottom, align);
 			if (!PadSingleSprite(&cur_sprite, zoom, pad_left, pad_top, pad_right, pad_bottom)) return false;
 		}
 	}
@@ -386,6 +420,12 @@ static bool ResizeSprites(SpriteLoader::SpriteCollection &sprite, ZoomLevels spr
 			/* Check that size and offsets match the fully zoomed image. */
 			[[maybe_unused]] const auto &root_sprite = sprite[ZoomLevel::Min];
 			[[maybe_unused]] const auto &dest_sprite = sprite[zoom];
+
+			if(false) printf("Checking zoom from %d x %d to expected %d x %d for level #%d\n",
+				root_sprite.width, root_sprite.height,
+				dest_sprite.width, dest_sprite.height,
+				to_underlying(zoom));
+
 			assert(dest_sprite.width == UnScaleByZoom(root_sprite.width, zoom));
 			assert(dest_sprite.height == UnScaleByZoom(root_sprite.height, zoom));
 			assert(dest_sprite.x_offs == UnScaleByZoom(root_sprite.x_offs, zoom));

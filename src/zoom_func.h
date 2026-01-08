@@ -12,6 +12,16 @@
 
 #include "zoom_type.h"
 
+inline int GetZoomScale(ZoomLevel level) {
+	return ZOOM_SCALES[to_underlying(level)];
+}
+
+inline int GetZoomScaleInv(ZoomLevel level) {
+	return ZOOM_SCALES_INV[to_underlying(level)];
+}
+
+#include <cstdio>
+
 /**
  * Scale by zoom level, usually shift left (when zoom > ZoomLevel::Min)
  * When shifting right, value is rounded up
@@ -21,7 +31,23 @@
  */
 inline int ScaleByZoom(int value, ZoomLevel zoom)
 {
-	return value << to_underlying(zoom);
+	int mask = (1 << ZOOM_SCALE_BITS) - 1;
+	int result = (value * GetZoomScale(zoom) + mask) >> ZOOM_SCALE_BITS;
+	// printf("Upscaling(up) from %d by #%d -> %d\n", value, to_underlying(zoom), result);
+	return result;
+}
+
+/**
+ * Scale by zoom level, usually shift left (when zoom > ZoomLevel::Min)
+ * @param value value to shift
+ * @param zoom  zoom level to shift to
+ * @return shifted value
+ */
+inline int ScaleByZoomLower(int value, ZoomLevel zoom)
+{
+	int result = (value * GetZoomScale(zoom)) >> ZOOM_SCALE_BITS;
+	// printf("Upscaling(down) from %d by #%d -> %d\n", value, to_underlying(zoom), result);
+	return result;
 }
 
 /**
@@ -33,7 +59,27 @@ inline int ScaleByZoom(int value, ZoomLevel zoom)
  */
 inline int UnScaleByZoom(int value, ZoomLevel zoom)
 {
-	return (value + (1 << to_underlying(zoom)) - 1) >> to_underlying(zoom);
+	int64_t value1 = value;
+	int64_t invScale = GetZoomScaleInv(zoom);
+	int64_t mask = (1 << ZOOM_SCALE_INV_BITS) - 1;
+	value1 = (value1 * invScale + mask) >> ZOOM_SCALE_INV_BITS;
+	// printf("Downscaling(up) from %d by #%d -> %ld\n", value, to_underlying(zoom), value1);
+	return (int)(value1);
+}
+
+/**
+ * Scale by zoom level, usually shift right (when zoom > ZoomLevel::Min)
+ * @param value value to shift
+ * @param zoom  zoom level to shift to
+ * @return shifted value
+ */
+inline int UnScaleByZoomLower(int value, ZoomLevel zoom)
+{
+	int64_t value1 = value;
+	int64_t invScale = GetZoomScaleInv(zoom);
+	value1 = (value1 * invScale) >> ZOOM_SCALE_INV_BITS;
+	// printf("Downscaling(down) from %d by #%d -> %ld\n", value, to_underlying(zoom), value1);
+	return (int)(value1);
 }
 
 /**
@@ -45,28 +91,6 @@ inline int UnScaleByZoom(int value, ZoomLevel zoom)
 inline int AdjustByZoom(int value, int zoom)
 {
 	return zoom < 0 ? UnScaleByZoom(value, static_cast<ZoomLevel>(-zoom)) : ScaleByZoom(value, static_cast<ZoomLevel>(zoom));
-}
-
-/**
- * Scale by zoom level, usually shift left (when zoom > ZoomLevel::Min)
- * @param value value to shift
- * @param zoom  zoom level to shift to
- * @return shifted value
- */
-inline int ScaleByZoomLower(int value, ZoomLevel zoom)
-{
-	return value << to_underlying(zoom);
-}
-
-/**
- * Scale by zoom level, usually shift right (when zoom > ZoomLevel::Min)
- * @param value value to shift
- * @param zoom  zoom level to shift to
- * @return shifted value
- */
-inline int UnScaleByZoomLower(int value, ZoomLevel zoom)
-{
-	return value >> to_underlying(zoom);
 }
 
 /**
@@ -88,7 +112,6 @@ inline ZoomLevel ScaleZoomGUI(ZoomLevel value)
 {
 	return std::clamp(value + (_gui_zoom - ZoomLevel::Normal), ZoomLevel::Min, ZoomLevel::Max);
 }
-
 /**
  * UnScale zoom level relative to GUI zoom.
  * @param value zoom level to scale
@@ -116,6 +139,7 @@ inline int ScaleSpriteTrad(int value)
  */
 inline int ScaleGUITrad(int value)
 {
+	// 100 = 25 * ZOOM_BASE, I think, or percent
 	return value * _gui_scale / 100;
 }
 

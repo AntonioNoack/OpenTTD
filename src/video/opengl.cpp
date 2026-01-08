@@ -1393,6 +1393,8 @@ void OpenGLBackend::RenderOglSprite(const OpenGLSprite *gl_sprite, PaletteID pal
 	if (_glDeleteBuffers != nullptr) _glDeleteBuffers(1, &OpenGLSprite::pal_pbo);
 }
 
+#include <cstdio>
+
 /**
  * Create an OpenGL sprite with a palette remap part.
  * @param sprite The sprite to create the OpenGL sprite for
@@ -1405,7 +1407,9 @@ OpenGLSprite::OpenGLSprite(SpriteType sprite_type, const SpriteLoader::SpriteCol
 	this->x_offs = root_sprite.x_offs;
 	this->y_offs = root_sprite.y_offs;
 
-	int levels = sprite_type == SpriteType::Font ? 1 : to_underlying(ZoomLevel::End);
+	printf("Creating OpenGL sprite\n");
+
+	int levels = sprite_type == SpriteType::Font ? 1 : to_underlying(ZoomLevel::End) / EXTRA_ZOOM_LEVELS;
 	assert(levels > 0);
 	(void)_glGetError();
 
@@ -1440,9 +1444,9 @@ OpenGLSprite::OpenGLSprite(SpriteType sprite_type, const SpriteLoader::SpriteCol
 	}
 
 	/* Upload texture data. */
-	for (ZoomLevel zoom = ZoomLevel::Min; zoom <= (sprite_type == SpriteType::Font ? ZoomLevel::Min : ZoomLevel::Max); ++zoom) {
+	for (ZoomLevel zoom = ZoomLevel::Min; zoom <= (sprite_type == SpriteType::Font ? ZoomLevel::Min : ZoomLevel::Max); zoom += EXTRA_ZOOM_LEVELS) {
 		const auto &src_sprite = sprite[zoom];
-		this->Update(src_sprite.width, src_sprite.height, to_underlying(zoom), src_sprite.data);
+		this->Update(src_sprite.width, src_sprite.height, to_underlying(zoom) / EXTRA_ZOOM_LEVELS, src_sprite.data);
 	}
 
 	assert(_glGetError() == GL_NO_ERROR);

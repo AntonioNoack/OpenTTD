@@ -1784,6 +1784,8 @@ void SortResolutions()
 	_resolutions.erase(last, _resolutions.end());
 }
 
+#include <cstdio>
+
 /**
  * Resolve GUI zoom level, if auto-suggestion is requested.
  */
@@ -1802,6 +1804,7 @@ void UpdateGUIZoom()
 	}
 
 	ZoomLevel new_zoom = ScaleGUITrad(1) <= 1 ? ZoomLevel::Normal : ScaleGUITrad(1) >= 4 ? ZoomLevel::In4x : ZoomLevel::In2x;
+	// ZoomLevel new_zoom = ZoomLevel::Normal;
 	/* Font glyphs should not be clamped to min/max zoom. */
 	_font_zoom = new_zoom;
 	/* Ensure the gui_zoom is clamped between min/max. */
